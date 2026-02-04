@@ -1,4 +1,5 @@
 import tkinter as tk
+from threading import Thread
 from downloader import download_video
 
 
@@ -24,9 +25,22 @@ class DownloaderUI:
 
     def start_download(self):
         url = self.url_entry.get()
-        self.status_label.config(text="Downloading...")
+        self.set_status("Downloading...")
 
-        # 🚨 blocking call (intentional)
+        # ✅ start background thread
+        thread = Thread(
+            target=self.run_download,
+            args=(url,),
+            daemon=True
+        )
+        thread.start()
+
+    def run_download(self, url):
+        # This runs in a worker thread
         download_video(url)
 
-        self.status_label.config(text="Done")
+        # Schedule UI update safely
+        self.root.after(0, lambda: self.set_status("Done"))
+
+    def set_status(self, text):
+        self.status_label.config(text=text)
