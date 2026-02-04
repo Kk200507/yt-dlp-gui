@@ -15,8 +15,10 @@ class DownloaderUI(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         self.title("yt-dlp")
-        self.geometry("900x520")
-        self.resizable(False, False)
+        # Slightly taller + resizable to prevent clipping on different DPI / font scaling
+        self.geometry("900x580")
+        self.minsize(820, 540)
+        self.resizable(True, True)
         
         # Set icon
         icon_path = os.path.join(os.path.dirname(__file__), "assets", "256.ico")
@@ -32,24 +34,24 @@ class DownloaderUI(ctk.CTk):
     # ---------- Main Panel ----------
     def create_main_panel(self):
         self.main = ctk.CTkFrame(self, corner_radius=18)
-        self.main.pack(expand=True, fill="both", padx=20, pady=20)
+        self.main.pack(expand=True, fill="both", padx=20, pady=15)
 
         ctk.CTkLabel(
             self.main,
-            text="Download Audio from YouTube",
+            text="Download Video or Audio from YouTube",
             font=ctk.CTkFont(size=24, weight="bold")
-        ).pack(pady=(30, 5))
+        ).pack(pady=(20, 5))
 
         ctk.CTkLabel(
             self.main,
-            text="Paste a link or song name and relax",
+            text="Paste a link (or search) • pick quality • download",
             font=ctk.CTkFont(size=14),
             text_color="#b084ff"
-        ).pack(pady=(0, 25))
+        ).pack(pady=(0, 15))
 
         # ---------- Card ----------
         self.card = ctk.CTkFrame(self.main, corner_radius=16)
-        self.card.pack(padx=60, pady=10, fill="x")
+        self.card.pack(padx=60, pady=8, fill="x")
 
         ctk.CTkLabel(
             self.card,
@@ -104,24 +106,45 @@ class DownloaderUI(ctk.CTk):
             font=ctk.CTkFont(size=16, weight="bold"),
             command=self.start_download
         )
-        self.download_btn.pack(pady=(25, 15))
+        self.download_btn.pack(pady=(16, 10))
 
-        # ---------- Progress ----------
+        # ---------- Progress Area (hidden until download starts) ----------
+        self.progress_area = ctk.CTkFrame(self.main, fg_color="transparent")
+        # Note: do NOT pack this yet.
+
         self.progress_bar = ctk.CTkProgressBar(
-            self.main,
+            self.progress_area,
             width=420,
             height=18,
             corner_radius=10
         )
         self.progress_bar.set(0)
-        self.progress_bar.pack(pady=(10, 5))
+        self.progress_bar.pack(pady=(6, 4))
 
+        # Status updating text below the bar (details like %, speed, etc.)
         self.progress_label = ctk.CTkLabel(
-            self.main,
+            self.progress_area,
             text="",
-            font=ctk.CTkFont(size=13)
+            font=ctk.CTkFont(size=12)
         )
-        self.progress_label.pack(pady=(5, 10))
+        self.progress_label.pack(pady=(0, 4))
+
+        # Phase text (Downloading / Merging / Finished) below the detail text
+        self.status_label = ctk.CTkLabel(
+            self.progress_area,
+            text="",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color="#b084ff"
+        )
+        self.status_label.pack(pady=(0, 6))
+
+    def show_progress_area(self):
+        if not self.progress_area.winfo_ismapped():
+            self.progress_area.pack(pady=(0, 8))
+
+    def hide_progress_area(self):
+        if self.progress_area.winfo_ismapped():
+            self.progress_area.pack_forget()
 
     # ---------- Folder Picker ----------
     def choose_folder(self):
@@ -138,8 +161,10 @@ class DownloaderUI(ctk.CTk):
             return
 
         self.download_btn.configure(state="disabled")
+        self.show_progress_area()
         self.progress_bar.set(0)
-        self.set_progress("Starting download...")
+        self.status_label.configure(text="Initializing...")
+        self.set_progress("")
 
         Thread(
             target=self.run_download,
@@ -150,29 +175,53 @@ class DownloaderUI(ctk.CTk):
     def run_download(self, url):
         resolution = self.resolution_var.get()
 
-        def on_progress(percent, speed):
-            try:
-                value = float(percent.strip('%')) / 100
-            except ValueError:
-                value = 0
+        def on_progress(status_msg, percent, speed, info):
+            # Update status label (main phase)
+            self.after(0, lambda s=status_msg: self.status_label.configure(text=s))
+            
+            # Update progress bar
+            if percent:
+                try:
+                    value = float(percent.strip('%')) / 100
+                except ValueError:
+                    value = 0
+            else:
+                value = self.progress_bar.get()  # Keep current value if no percent
+            
+            self.after(0, lambda v=value: self.progress_bar.set(v))
+            
+            # Build detailed progress text
+            progress_parts = []
+            if percent:
+                progress_parts.append(percent)
+            if speed:
+                progress_parts.append(speed)
+            if info:
+                progress_parts.append(info)
+            
+            progress_text = " • ".join(progress_parts) if progress_parts else ""
+            self.after(0, lambda t=progress_text: self.set_progress(t))
 
-            self.after(0, lambda: self.progress_bar.set(value))
-            self.after(
-                0,
-                lambda: self.set_progress(f"{percent} • {speed}")
+        try:
+            download_video(
+                url,
+                save_path=self.save_path,
+                resolution=resolution,
+                progress_callback=on_progress
             )
-
-        download_video(
-            url,
-            save_path=self.save_path,
-            resolution=resolution,
-            progress_callback=on_progress
-        )
-
-        self.after(0, self.on_download_complete)
+            self.after(0, self.on_download_complete)
+        except Exception as e:
+            self.after(0, lambda: self.on_download_error(str(e)))
 
     def on_download_complete(self):
-        self.set_progress("Download complete")
+        self.status_label.configure(text="✓ Complete")
+        self.set_progress("Download finished successfully!")
+        self.progress_bar.set(1.0)
+        self.download_btn.configure(state="normal")
+
+    def on_download_error(self, error_msg):
+        self.status_label.configure(text="✗ Error")
+        self.set_progress(f"Error: {error_msg}")
         self.download_btn.configure(state="normal")
 
     def set_progress(self, text):
