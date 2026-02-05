@@ -1,5 +1,11 @@
 import os
+import shutil
 from yt_dlp import YoutubeDL
+
+def check_ffmpeg():
+    """Check if ffmpeg is available in the system PATH."""
+    return shutil.which("ffmpeg") is not None
+
 
 def download_video(url: str, save_path: str = None, resolution: str = "Best", progress_callback=None):
     """
@@ -83,6 +89,9 @@ def download_video(url: str, save_path: str = None, resolution: str = "Best", pr
         "quiet": False,
         "no_warnings": False,
     }
+
+    # Note: yt-dlp will automatically detect and use ffmpeg if available
+    # We don't need to check manually - yt-dlp will handle it gracefully
 
     # Notify that we're fetching video info
     if progress_callback:

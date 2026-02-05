@@ -211,7 +211,11 @@ class DownloaderUI(ctk.CTk):
             )
             self.after(0, self.on_download_complete)
         except Exception as e:
-            self.after(0, lambda: self.on_download_error(str(e)))
+            error_msg = str(e)
+            # Provide helpful message for ffmpeg errors
+            if "ffmpeg" in error_msg.lower() or "merging" in error_msg.lower():
+                error_msg = "ffmpeg not found. Please ensure ffmpeg is installed and added to your system PATH, or select 'Audio only' quality."
+            self.after(0, lambda msg=error_msg: self.on_download_error(msg))
 
     def on_download_complete(self):
         self.status_label.configure(text="✓ Complete")
