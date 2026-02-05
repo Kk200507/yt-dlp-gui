@@ -2,6 +2,37 @@ import os
 import shutil
 from yt_dlp import YoutubeDL
 
+def get_available_qualities(url: str):
+    ydl_opts = {
+        "quiet": True,
+        "skip_download": True,
+    }
+
+    with YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+    formats = info.get("formats", [])
+    heights = set()
+    has_audio = False
+
+    for f in formats:
+        if f.get("vcodec") != "none" and f.get("height"):
+            heights.add(f["height"])
+        if f.get("acodec") != "none":
+            has_audio = True
+
+    qualities = sorted(heights, reverse=True)
+    result = [f"{h}p" for h in qualities]
+
+    if has_audio:
+        result.append("Audio only")
+
+    if not result:
+        result.append("Best")
+
+    return result
+
+
 def check_ffmpeg():
     """Check if ffmpeg is available in the system PATH."""
     return shutil.which("ffmpeg") is not None
@@ -69,12 +100,9 @@ def download_video(url: str, save_path: str = None, resolution: str = "Best", pr
     format_selector = "best"
     if resolution == "Audio only":
         format_selector = "bestaudio/best"
-    elif resolution == "1080p":
-        format_selector = "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
-    elif resolution == "720p":
-        format_selector = "bestvideo[height<=720]+bestaudio/best[height<=720]"
-    elif resolution == "480p":
-        format_selector = "bestvideo[height<=480]+bestaudio/best[height<=480]"
+    elif resolution.endswith("p"):
+        height = resolution.replace("p", "")
+        format_selector = f"bestvideo[height<={height}]+bestaudio/best"
     
     # Output template
     if save_path:

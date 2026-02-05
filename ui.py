@@ -2,8 +2,8 @@ import os
 import customtkinter as ctk
 from threading import Thread
 from tkinter import filedialog
+from downloader import download_video, get_available_qualities
 
-from downloader import download_video
 
 
 class DownloaderUI(ctk.CTk):
@@ -30,6 +30,33 @@ class DownloaderUI(ctk.CTk):
 
         # ---------- Layout ----------
         self.create_main_panel()
+    def fetch_qualities(self):
+        url = self.url_entry.get().strip()
+        if not url:
+            return
+
+        self.resolution_menu.configure(state="disabled")
+        self.resolution_menu.set("Checking formats...")
+
+        Thread(
+            target=self._qualities_worker,
+            args=(url,),
+            daemon=True
+        ).start()
+
+
+    def _qualities_worker(self, url):
+        try:
+            qualities = get_available_qualities(url)
+        except Exception:
+            qualities = ["Best"]
+
+        self.after(0, lambda: self.update_quality_menu(qualities))
+
+
+    def update_quality_menu(self, qualities):
+        self.resolution_menu.configure(values=qualities, state="normal")
+        self.resolution_var.set(qualities[0])
 
     # ---------- Main Panel ----------
     def create_main_panel(self):
@@ -59,8 +86,18 @@ class DownloaderUI(ctk.CTk):
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=20, pady=(15, 5))
 
-        self.url_entry = ctk.CTkEntry(self.card, height=40, corner_radius=10)
+        self.url_var = ctk.StringVar()
+
+        self.url_entry = ctk.CTkEntry(
+            self.card,
+            height=40,
+            corner_radius=10,
+            textvariable=self.url_var
+        )
+        self.url_var.trace_add("write", self._on_url_change)
+
         self.url_entry.pack(fill="x", padx=20, pady=(0, 15))
+        self.url_entry.bind("<FocusOut>", lambda e: self.fetch_qualities())
 
         # ---------- Resolution ----------
         ctk.CTkLabel(
@@ -73,9 +110,10 @@ class DownloaderUI(ctk.CTk):
 
         self.resolution_menu = ctk.CTkOptionMenu(
             self.card,
-            values=["Best", "1080p", "720p", "480p", "Audio only"],
+            values=["Paste URL first"],
             variable=self.resolution_var
         )
+        self.resolution_menu.configure(state="disabled")
         self.resolution_menu.pack(anchor="w", padx=20, pady=(5, 15))
 
         # ---------- Save Path ----------
@@ -141,6 +179,19 @@ class DownloaderUI(ctk.CTk):
     def show_progress_area(self):
         if not self.progress_area.winfo_ismapped():
             self.progress_area.pack(pady=(0, 8))
+    def _on_url_change(self, *args):
+        url = self.url_var.get().strip()
+
+        # Avoid hammering yt-dlp on every keystroke
+        if len(url) < 10:
+            return
+
+        # Debounce: cancel previous scheduled call
+        if hasattr(self, "_format_job"):
+            self.after_cancel(self._format_job)
+
+        # Schedule format check after user pauses typing/pasting
+        self._format_job = self.after(600, self.fetch_qualities)
 
     def hide_progress_area(self):
         if self.progress_area.winfo_ismapped():
