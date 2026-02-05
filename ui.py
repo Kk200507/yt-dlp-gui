@@ -57,6 +57,8 @@ class DownloaderUI(ctk.CTk):
     def update_quality_menu(self, qualities):
         self.resolution_menu.configure(values=qualities, state="normal")
         self.resolution_var.set(qualities[0])
+        #Qualities are ready → enable download
+        self.download_btn.configure(state="normal")
 
     # ---------- Main Panel ----------
     def create_main_panel(self):
@@ -145,6 +147,7 @@ class DownloaderUI(ctk.CTk):
             command=self.start_download
         )
         self.download_btn.pack(pady=(16, 10))
+        self.download_btn.configure(state="disabled")
 
         # ---------- Progress Area (hidden until download starts) ----------
         self.progress_area = ctk.CTkFrame(self.main, fg_color="transparent")
@@ -180,6 +183,7 @@ class DownloaderUI(ctk.CTk):
         if not self.progress_area.winfo_ismapped():
             self.progress_area.pack(pady=(0, 8))
     def _on_url_change(self, *args):
+        self.download_btn.configure(state="disabled")
         url = self.url_var.get().strip()
 
         # Avoid hammering yt-dlp on every keystroke
@@ -206,6 +210,8 @@ class DownloaderUI(ctk.CTk):
 
     # ---------- Download Logic ----------
     def start_download(self):
+        self.download_btn.configure(state="disabled")
+
         url = self.url_entry.get().strip()
         if not url:
             self.set_progress("Please enter a valid URL")
