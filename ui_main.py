@@ -4,6 +4,8 @@ from threading import Thread
 from tkinter import filedialog
 from downloader import download_video, get_available_qualities
 from about_dialog import AboutDialog
+from history_dialog import HistoryDialog
+
 # MAIN UI WINDOW
 class DownloaderUI(ctk.CTk):
     def __init__(self):
@@ -78,6 +80,9 @@ class DownloaderUI(ctk.CTk):
                 self._set_controls_enabled(url=True, quality=True, browse=True, download=True)
         else:
             raise ValueError(f"Unknown busy mode: {mode}")
+    def open_history(self):
+        HistoryDialog(self)
+
     def fetch_qualities(self):
         url = self.url_entry.get().strip()
         if not url:
@@ -138,12 +143,20 @@ class DownloaderUI(ctk.CTk):
         )
         self.sidebar_button_home.grid(row=1, column=0, padx=20, pady=10)
 
+        self.sidebar_button_history = ctk.CTkButton(
+            self.sidebar_frame,
+            text="History",
+            command=self.open_history
+        )
+        self.sidebar_button_history.grid(row=2, column=0, padx=20, pady=10)
+
+
         self.sidebar_button_about = ctk.CTkButton(
             self.sidebar_frame, 
             text="About",
             command=self.open_about_dialog
         )
-        self.sidebar_button_about.grid(row=2, column=0, padx=20, pady=10)
+        self.sidebar_button_about.grid(row=3, column=0, padx=20, pady=10)
 
         # Appearance Mode
         self.appearance_mode_label = ctk.CTkLabel(
