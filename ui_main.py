@@ -3,8 +3,7 @@ import customtkinter as ctk
 from threading import Thread
 from tkinter import filedialog
 from downloader import download_video, get_available_qualities
-
-
+from about_dialog import AboutDialog
 
 class DownloaderUI(ctk.CTk):
     def __init__(self):
