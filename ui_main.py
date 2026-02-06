@@ -13,11 +13,15 @@ class DownloaderUI(ctk.CTk):
         ctk.set_appearance_mode("Dark")   # Dark / Light / System
         ctk.set_default_color_theme("blue")
 
-        self.title("yt-dlp")
+        self.title("yt-dlp GUI")
         # Slightly taller + resizable to prevent clipping on different DPI / font scaling
         self.geometry("900x580")
         self.minsize(820, 540)
         self.resizable(True, True)
+
+        # Configure connection to grid
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
         
         # Set icon
         icon_path = os.path.join(os.path.dirname(__file__), "assets", "256.ico")
@@ -31,7 +35,8 @@ class DownloaderUI(ctk.CTk):
         self._app_status = "Idle"  # Idle / Probing / Downloading / Finished
 
         # ---------- Layout ----------
-        self.create_main_panel()
+        self.create_sidebar()
+        self.create_home_frame()
         self.set_app_status("Idle")
 
     # ---------- Status + UI enable/disable ----------
@@ -113,10 +118,70 @@ class DownloaderUI(ctk.CTk):
         self.browse_btn.configure(state="normal")
         self._set_busy("probing", False)
 
-    # ---------- Main Panel ----------
-    def create_main_panel(self):
-        self.main = ctk.CTkFrame(self, corner_radius=18)
-        self.main.pack(expand=True, fill="both", padx=20, pady=15)
+    # ---------- Sidebar ----------
+    def create_sidebar(self):
+        self.sidebar_frame = ctk.CTkFrame(self, width=140, corner_radius=0)
+        self.sidebar_frame.grid(row=0, column=0, rowspan=4, sticky="nsew")
+        self.sidebar_frame.grid_rowconfigure(4, weight=1)
+
+        self.logo_label = ctk.CTkLabel(
+            self.sidebar_frame, 
+            text="YT-DLP GUI", 
+            font=ctk.CTkFont(size=20, weight="bold")
+        )
+        self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
+
+        self.sidebar_button_home = ctk.CTkButton(
+            self.sidebar_frame, 
+            text="Home",
+            command=self.sidebar_home_event
+        )
+        self.sidebar_button_home.grid(row=1, column=0, padx=20, pady=10)
+
+        self.sidebar_button_about = ctk.CTkButton(
+            self.sidebar_frame, 
+            text="About",
+            command=self.open_about_dialog
+        )
+        self.sidebar_button_about.grid(row=2, column=0, padx=20, pady=10)
+
+        # Appearance Mode
+        self.appearance_mode_label = ctk.CTkLabel(
+            self.sidebar_frame, 
+            text="Appearance Mode:", 
+            anchor="w"
+        )
+        self.appearance_mode_label.grid(row=5, column=0, padx=20, pady=(10, 0))
+        
+        self.appearance_mode_optionemenu = ctk.CTkOptionMenu(
+            self.sidebar_frame, 
+            values=["System", "Light", "Dark"],
+            command=self.change_appearance_mode_event
+        )
+        self.appearance_mode_optionemenu.grid(row=6, column=0, padx=20, pady=(10, 20))
+        
+        # Select default
+        self.appearance_mode_optionemenu.set("Dark")
+
+    def sidebar_home_event(self):
+        # Already on home, maybe reset? For now just pass
+        pass
+
+    def open_about_dialog(self):
+        AboutDialog(self)
+
+    def change_appearance_mode_event(self, new_appearance_mode: str):
+        ctk.set_appearance_mode(new_appearance_mode)
+
+    # ---------- Main Panel (Home) ----------
+    def create_home_frame(self):
+        self.home_frame = ctk.CTkFrame(self, corner_radius=18, fg_color="transparent")
+        self.home_frame.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
+        
+        # We need a container for the 'main' content inside home_frame because
+        # the original code packed everything into self.main
+        self.main = ctk.CTkFrame(self.home_frame, corner_radius=18)
+        self.main.pack(expand=True, fill="both")
 
         ctk.CTkLabel(
             self.main,
