@@ -1,6 +1,7 @@
 import os
 import shutil
 from yt_dlp import YoutubeDL
+from history import save_history_entry
 
 def get_available_qualities(url: str):
     ydl_opts = {
@@ -10,6 +11,8 @@ def get_available_qualities(url: str):
 
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
+
+    # save_history_entry(info)
 
     formats = info.get("formats", [])
     heights = set()
@@ -126,8 +129,9 @@ def download_video(url: str, save_path: str = None, resolution: str = "Best", pr
         progress_callback("Fetching info", "", "", "Getting video information...")
 
     with YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+        info = ydl.extract_info(url, download=True)
 
+    save_history_entry(info)
 
 
 if __name__ == "__main__":

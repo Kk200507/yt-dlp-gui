@@ -4,3 +4,4 @@ dist/
 *.spec
 *.exe
 .venv/
+history.json
