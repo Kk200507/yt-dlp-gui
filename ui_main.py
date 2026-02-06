@@ -26,38 +26,92 @@ class DownloaderUI(ctk.CTk):
 
         # ---------- State ----------
         self.save_path = os.path.expanduser("~/Downloads")
+        self._probe_seq = 0
+        self._is_downloading = False
+        self._app_status = "Idle"  # Idle / Probing / Downloading / Finished
 
         # ---------- Layout ----------
         self.create_main_panel()
+        self.set_app_status("Idle")
+
+    # ---------- Status + UI enable/disable ----------
+    def set_app_status(self, status: str):
+        """Global UI status: Idle / Probing / Downloading / Finished."""
+        self._app_status = status
+        if hasattr(self, "app_status_label"):
+            self.app_status_label.configure(text=f"Status: {status}")
+
+    def _set_controls_enabled(self, *, url: bool, quality: bool, browse: bool, download: bool):
+        self.url_entry.configure(state="normal" if url else "disabled")
+        self.resolution_menu.configure(state="normal" if quality else "disabled")
+        self.browse_btn.configure(state="normal" if browse else "disabled")
+        self.download_btn.configure(state="normal" if download else "disabled")
+
+    def _set_busy(self, mode: str, busy: bool):
+        """
+        mode: 'probing' or 'downloading'
+        """
+        if mode == "probing":
+            if busy:
+                self.set_app_status("Probing")
+                # Allow URL editing so the user can fix/paste; lock the rest.
+                self._set_controls_enabled(url=True, quality=False, browse=False, download=False)
+            else:
+                # If a download is running, don't override its locked state/status.
+                if not self._is_downloading:
+                    self.set_app_status("Idle")
+                    # Quality/download enabling is handled by update_quality_menu().
+                    self._set_controls_enabled(url=True, quality=True, browse=True, download=True)
+        elif mode == "downloading":
+            if busy:
+                self._is_downloading = True
+                self.set_app_status("Downloading")
+                self._set_controls_enabled(url=False, quality=False, browse=False, download=False)
+            else:
+                self._is_downloading = False
+                # Keep status as Finished/Error; caller decides next status.
+                self._set_controls_enabled(url=True, quality=True, browse=True, download=True)
+        else:
+            raise ValueError(f"Unknown busy mode: {mode}")
     def fetch_qualities(self):
         url = self.url_entry.get().strip()
         if not url:
+            self.set_app_status("Idle")
             return
 
-        self.resolution_menu.configure(state="disabled")
+        self._probe_seq += 1
+        probe_seq = self._probe_seq
+
+        self._set_busy("probing", True)
         self.resolution_menu.set("Checking formats...")
 
         Thread(
             target=self._qualities_worker,
-            args=(url,),
+            args=(url, probe_seq),
             daemon=True
         ).start()
 
 
-    def _qualities_worker(self, url):
+    def _qualities_worker(self, url, probe_seq: int):
         try:
             qualities = get_available_qualities(url)
         except Exception:
             qualities = ["Best"]
 
-        self.after(0, lambda: self.update_quality_menu(qualities))
+        self.after(0, lambda: self.update_quality_menu(qualities, url, probe_seq))
 
 
-    def update_quality_menu(self, qualities):
+    def update_quality_menu(self, qualities, url: str, probe_seq: int):
+        # Ignore stale probe results if the user changed the URL while probing.
+        if probe_seq != self._probe_seq or url != self.url_entry.get().strip():
+            return
+
         self.resolution_menu.configure(values=qualities, state="normal")
         self.resolution_var.set(qualities[0])
         #Qualities are ready → enable download
         self.download_btn.configure(state="normal")
+        self.browse_btn.configure(state="normal")
+        self._set_busy("probing", False)
 
     # ---------- Main Panel ----------
     def create_main_panel(self):
@@ -128,12 +182,13 @@ class DownloaderUI(ctk.CTk):
         )
         self.path_label.pack(side="left", fill="x", expand=True)
 
-        ctk.CTkButton(
+        self.browse_btn = ctk.CTkButton(
             path_frame,
             text="Browse",
             width=90,
             command=self.choose_folder
-        ).pack(side="right")
+        )
+        self.browse_btn.pack(side="right")
 
         # ---------- Download Button ----------
         self.download_btn = ctk.CTkButton(
@@ -147,6 +202,15 @@ class DownloaderUI(ctk.CTk):
         )
         self.download_btn.pack(pady=(16, 10))
         self.download_btn.configure(state="disabled")
+
+        # ---------- Global Status (always visible) ----------
+        self.app_status_label = ctk.CTkLabel(
+            self.main,
+            text="Status: Idle",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#b084ff"
+        )
+        self.app_status_label.pack(pady=(0, 8))
 
         # ---------- Progress Area (hidden until download starts) ----------
         self.progress_area = ctk.CTkFrame(self.main, fg_color="transparent")
@@ -182,6 +246,9 @@ class DownloaderUI(ctk.CTk):
         if not self.progress_area.winfo_ismapped():
             self.progress_area.pack(pady=(0, 8))
     def _on_url_change(self, *args):
+        # New input resets global status unless we're actively downloading.
+        if not self._is_downloading:
+            self.set_app_status("Idle")
         self.download_btn.configure(state="disabled")
         url = self.url_var.get().strip()
 
@@ -209,14 +276,15 @@ class DownloaderUI(ctk.CTk):
 
     # ---------- Download Logic ----------
     def start_download(self):
-        self.download_btn.configure(state="disabled")
+        self._set_busy("downloading", True)
 
         url = self.url_entry.get().strip()
         if not url:
             self.set_progress("Please enter a valid URL")
+            self._set_busy("downloading", False)
+            self.set_app_status("Idle")
             return
 
-        self.download_btn.configure(state="disabled")
         self.show_progress_area()
         self.progress_bar.set(0)
         self.status_label.configure(text="Initializing...")
@@ -275,14 +343,17 @@ class DownloaderUI(ctk.CTk):
 
     def on_download_complete(self):
         self.status_label.configure(text="✓ Complete")
+        self.set_app_status("Finished")
         self.set_progress("Download finished successfully!")
         self.progress_bar.set(1.0)
-        self.download_btn.configure(state="normal")
+        self._set_busy("downloading", False)
 
     def on_download_error(self, error_msg):
         self.status_label.configure(text="✗ Error")
         self.set_progress(f"Error: {error_msg}")
-        self.download_btn.configure(state="normal")
+        self._set_busy("downloading", False)
+        # Work ended; go back to Idle (list doesn't include Error as a global state)
+        self.set_app_status("Idle")
 
     def set_progress(self, text):
         self.progress_label.configure(text=text)
