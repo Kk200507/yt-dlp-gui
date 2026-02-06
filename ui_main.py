@@ -4,7 +4,7 @@ from threading import Thread
 from tkinter import filedialog
 from downloader import download_video, get_available_qualities
 from about_dialog import AboutDialog
-
+# MAIN UI WINDOW
 class DownloaderUI(ctk.CTk):
     def __init__(self):
         super().__init__()
