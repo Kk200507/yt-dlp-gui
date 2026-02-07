@@ -5,6 +5,8 @@ from tkinter import filedialog
 from downloader import download_video, get_available_qualities
 from about_dialog import AboutDialog
 from history_dialog import HistoryDialog
+from error_dialog import ErrorDialog
+from error_handling import get_user_friendly_error
 
 # MAIN UI WINDOW
 class DownloaderUI(ctk.CTk):
@@ -415,8 +417,6 @@ class DownloaderUI(ctk.CTk):
         except Exception as e:
             error_msg = str(e)
             # Provide helpful message for ffmpeg errors
-            if "ffmpeg" in error_msg.lower() or "merging" in error_msg.lower():
-                error_msg = "ffmpeg not found. Please ensure ffmpeg is installed and added to your system PATH, or select 'Audio only' quality."
             self.after(0, lambda msg=error_msg: self.on_download_error(msg))
 
     def on_download_complete(self):
@@ -428,10 +428,18 @@ class DownloaderUI(ctk.CTk):
 
     def on_download_error(self, error_msg):
         self.status_label.configure(text="✗ Error")
-        self.set_progress(f"Error: {error_msg}")
+        
+        # Determine friendly message
+        title, friendly_desc = get_user_friendly_error(error_msg)
+        
+        # Update inline progress validation - keep it short, dialog has full details
+        self.set_progress(f"Failed: {title}")
+        
         self._set_busy("downloading", False)
-        # Work ended; go back to Idle (list doesn't include Error as a global state)
         self.set_app_status("Idle")
+        
+        # Show the polished dialog
+        ErrorDialog(self, title=title, description=friendly_desc, raw_error=error_msg)
 
     def set_progress(self, text):
         self.progress_label.configure(text=text)
