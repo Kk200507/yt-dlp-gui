@@ -24,7 +24,20 @@ def get_available_qualities(url: str):
         if f.get("acodec") != "none":
             has_audio = True
 
-    qualities = sorted(heights, reverse=True)
+    qualities_set = set()
+    standard_heights = [144, 240, 360, 480, 720, 1080, 1440, 2160, 4320]
+    
+    for h in heights:
+        # Snap to nearest standard, but prefer snapping up to ensure quality
+        # Actually, best approach: Use buckets.
+        # If h is close to a standard, map it.
+        # If h > max standard, map to "Original" or nearest.
+        
+        # Simple approach: Find closest standard height
+        closest = min(standard_heights, key=lambda x: abs(x - h))
+        qualities_set.add(closest)
+
+    qualities = sorted(list(qualities_set), reverse=True)
     result = [f"{h}p" for h in qualities]
 
     if has_audio:
@@ -43,9 +56,21 @@ def check_ffmpeg():
 
 def download_video(url: str, save_path: str = None, resolution: str = "Best", progress_callback=None):
     """
-    Downloads a video using yt-dlp.
     progress_callback: function(status: str, percent: str, speed: str, total: str, eta: str, info: str)
     """
+
+    class InterceptLogger:
+        def debug(self, msg):
+            if "already been downloaded" in msg:
+                 if progress_callback:
+                     progress_callback("Finished", "100%", "", "", "", "File already exists - skipped download")
+            pass
+        def warning(self, msg):
+            pass
+        def error(self, msg):
+            pass
+        def info(self, msg):
+            pass
 
     def progress_hook(d):
         status = d.get("status")
@@ -122,6 +147,7 @@ def download_video(url: str, save_path: str = None, resolution: str = "Best", pr
         "progress_hooks": [progress_hook],
         "quiet": False,
         "no_warnings": False,
+        "logger": InterceptLogger(),
     }
 
     # Note: yt-dlp will automatically detect and use ffmpeg if available

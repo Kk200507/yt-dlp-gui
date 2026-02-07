@@ -383,6 +383,9 @@ class DownloaderUI(ctk.CTk):
             # Update status label (main phase)
             self.after(0, lambda s=status_msg: self.status_label.configure(text=s))
             
+            if status_msg == "Finished":
+                self.after(0, lambda: self.set_app_status("Finished"))
+            
             # Update progress bar
             if percent:
                 try:
@@ -436,6 +439,11 @@ class DownloaderUI(ctk.CTk):
             self.after(0, lambda msg=error_msg: self.on_download_error(msg))
 
     def on_download_complete(self):
+        # If we already marked it as Finished (e.g. via "already downloaded" logger), don't overwrite the message
+        if self._app_status == "Finished":
+             self._set_busy("downloading", False)
+             return
+
         self.status_label.configure(text="✓ Complete")
         self.set_app_status("Finished")
         self.set_progress("Download finished successfully!")
