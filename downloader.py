@@ -44,7 +44,7 @@ def check_ffmpeg():
 def download_video(url: str, save_path: str = None, resolution: str = "Best", progress_callback=None):
     """
     Downloads a video using yt-dlp.
-    progress_callback: function(status: str, percent: str, speed: str, info: str)
+    progress_callback: function(status: str, percent: str, speed: str, total: str, eta: str, info: str)
     """
 
     def progress_hook(d):
@@ -56,6 +56,9 @@ def download_video(url: str, save_path: str = None, resolution: str = "Best", pr
         if status == "downloading":
             percent = d.get("_percent_str", "").strip()
             speed = d.get("_speed_str", "").strip()
+            total = d.get("_total_bytes_str") or d.get("_total_bytes_estimate_str", "")
+            total = total.strip()
+            eta = d.get("_eta_str", "").strip()
             
             # Try to determine if downloading video or audio
             if filename:
@@ -69,11 +72,11 @@ def download_video(url: str, save_path: str = None, resolution: str = "Best", pr
                 status_msg = "Downloading"
             
             if progress_callback:
-                progress_callback(status_msg, percent, speed, "")
+                progress_callback(status_msg, percent, speed, total, eta, "")
 
         elif status == "downloaded":
             if progress_callback:
-                progress_callback("Downloaded", "100%", "", "Preparing to merge...")
+                progress_callback("Downloaded", "100%", "", "", "", "Preparing to merge...")
 
         elif status == "processing" or postprocessor:
             postprocessor_name = ""
@@ -93,11 +96,11 @@ def download_video(url: str, save_path: str = None, resolution: str = "Best", pr
                 info = "Processing files..."
             
             if progress_callback:
-                progress_callback(status_msg, "", "", info)
+                progress_callback(status_msg, "", "", "", "", info)
 
         elif status == "finished":
             if progress_callback:
-                progress_callback("Finished", "100%", "", "Download complete!")
+                progress_callback("Finished", "100%", "", "", "", "Download complete!")
 
     # Format selection based on resolution
     format_selector = "best"
@@ -126,7 +129,7 @@ def download_video(url: str, save_path: str = None, resolution: str = "Best", pr
 
     # Notify that we're fetching video info
     if progress_callback:
-        progress_callback("Fetching info", "", "", "Getting video information...")
+        progress_callback("Fetching info", "", "", "", "", "Getting video information...")
 
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)

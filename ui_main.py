@@ -379,31 +379,47 @@ class DownloaderUI(ctk.CTk):
     def run_download(self, url):
         resolution = self.resolution_var.get()
 
-        def on_progress(status_msg, percent, speed, info):
+        def on_progress(status_msg, percent, speed, total, eta, info):
             # Update status label (main phase)
             self.after(0, lambda s=status_msg: self.status_label.configure(text=s))
             
             # Update progress bar
             if percent:
                 try:
-                    value = float(percent.strip('%')) / 100
+                    # Remove ANSI codes or extra chars if necessary, mostly yt-dlp percent is cleanish
+                    clean_percent = percent.replace('%', '').strip()
+                    value = float(clean_percent) / 100
                 except ValueError:
                     value = 0
             else:
-                value = self.progress_bar.get()  # Keep current value if no percent
+                value = self.progress_bar.get()
             
             self.after(0, lambda v=value: self.progress_bar.set(v))
             
             # Build detailed progress text
-            progress_parts = []
-            if percent:
-                progress_parts.append(percent)
-            if speed:
-                progress_parts.append(speed)
-            if info:
-                progress_parts.append(info)
+            # Goal: "86.9% of 117.77MiB at 7.32MiB/s ETA 00:02"
+            parts = []
             
-            progress_text = " • ".join(progress_parts) if progress_parts else ""
+            if percent:
+                if total:
+                    parts.append(f"{percent} of {total}")
+                else:
+                    parts.append(percent)
+            
+            if speed:
+                parts.append(f"at {speed}")
+            
+            if eta:
+                parts.append(f"ETA {eta}")
+            
+            if info:
+                # If we have info (like "Combining..."), it might be the only thing or separate
+                if parts:
+                    parts.append(f"• {info}")
+                else:
+                    parts.append(info)
+            
+            progress_text = " ".join(parts) if parts else ""
             self.after(0, lambda t=progress_text: self.set_progress(t))
 
         try:
