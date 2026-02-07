@@ -5,6 +5,8 @@ from tkinter import filedialog
 from downloader import download_video, get_available_qualities
 from about_dialog import AboutDialog
 from history_dialog import HistoryDialog
+from error_dialog import ErrorDialog
+from error_handling import get_user_friendly_error
 
 # MAIN UI WINDOW
 class DownloaderUI(ctk.CTk):
@@ -377,31 +379,50 @@ class DownloaderUI(ctk.CTk):
     def run_download(self, url):
         resolution = self.resolution_var.get()
 
-        def on_progress(status_msg, percent, speed, info):
+        def on_progress(status_msg, percent, speed, total, eta, info):
             # Update status label (main phase)
             self.after(0, lambda s=status_msg: self.status_label.configure(text=s))
+            
+            if status_msg == "Finished":
+                self.after(0, lambda: self.set_app_status("Finished"))
             
             # Update progress bar
             if percent:
                 try:
-                    value = float(percent.strip('%')) / 100
+                    # Remove ANSI codes or extra chars if necessary, mostly yt-dlp percent is cleanish
+                    clean_percent = percent.replace('%', '').strip()
+                    value = float(clean_percent) / 100
                 except ValueError:
                     value = 0
             else:
-                value = self.progress_bar.get()  # Keep current value if no percent
+                value = self.progress_bar.get()
             
             self.after(0, lambda v=value: self.progress_bar.set(v))
             
             # Build detailed progress text
-            progress_parts = []
-            if percent:
-                progress_parts.append(percent)
-            if speed:
-                progress_parts.append(speed)
-            if info:
-                progress_parts.append(info)
+            # Goal: "86.9% of 117.77MiB at 7.32MiB/s ETA 00:02"
+            parts = []
             
-            progress_text = " • ".join(progress_parts) if progress_parts else ""
+            if percent:
+                if total:
+                    parts.append(f"{percent} of {total}")
+                else:
+                    parts.append(percent)
+            
+            if speed:
+                parts.append(f"at {speed}")
+            
+            if eta:
+                parts.append(f"ETA {eta}")
+            
+            if info:
+                # If we have info (like "Combining..."), it might be the only thing or separate
+                if parts:
+                    parts.append(f"• {info}")
+                else:
+                    parts.append(info)
+            
+            progress_text = " ".join(parts) if parts else ""
             self.after(0, lambda t=progress_text: self.set_progress(t))
 
         try:
@@ -415,11 +436,14 @@ class DownloaderUI(ctk.CTk):
         except Exception as e:
             error_msg = str(e)
             # Provide helpful message for ffmpeg errors
-            if "ffmpeg" in error_msg.lower() or "merging" in error_msg.lower():
-                error_msg = "ffmpeg not found. Please ensure ffmpeg is installed and added to your system PATH, or select 'Audio only' quality."
             self.after(0, lambda msg=error_msg: self.on_download_error(msg))
 
     def on_download_complete(self):
+        # If we already marked it as Finished (e.g. via "already downloaded" logger), don't overwrite the message
+        if self._app_status == "Finished":
+             self._set_busy("downloading", False)
+             return
+
         self.status_label.configure(text="✓ Complete")
         self.set_app_status("Finished")
         self.set_progress("Download finished successfully!")
@@ -428,10 +452,18 @@ class DownloaderUI(ctk.CTk):
 
     def on_download_error(self, error_msg):
         self.status_label.configure(text="✗ Error")
-        self.set_progress(f"Error: {error_msg}")
+        
+        # Determine friendly message
+        title, friendly_desc = get_user_friendly_error(error_msg)
+        
+        # Update inline progress validation - keep it short, dialog has full details
+        self.set_progress(f"Failed: {title}")
+        
         self._set_busy("downloading", False)
-        # Work ended; go back to Idle (list doesn't include Error as a global state)
         self.set_app_status("Idle")
+        
+        # Show the polished dialog
+        ErrorDialog(self, title=title, description=friendly_desc, raw_error=error_msg)
 
     def set_progress(self, text):
         self.progress_label.configure(text=text)
