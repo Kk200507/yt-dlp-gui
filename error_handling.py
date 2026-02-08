@@ -89,4 +89,4 @@ def get_user_friendly_error(error_msg: str) -> tuple[str, str]:
         "Download Failed", 
         "An unexpected error occurred during the download process."
     )
-# different errors
+
