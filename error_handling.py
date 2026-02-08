@@ -3,6 +3,19 @@ def get_user_friendly_error(error_msg: str) -> tuple[str, str]:
     Parses a raw exception message and returns a tuple of (title, friendly_description).
     """
     msg = error_msg.lower()
+
+    if "already been downloaded" in msg:
+        return (
+            "Already Downloaded",
+            "This file already exists in the selected folder."
+        )
+
+    if "javascript runtime" in msg:
+        return (
+            "Limited Format Support",
+            "Some video formats may be unavailable due to missing JavaScript runtime.\n"
+            "Basic downloads should still work."
+        )
     
     # FFmpeg issues
     if "ffmpeg" in msg or "merging" in msg:
