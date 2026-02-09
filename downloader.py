@@ -187,7 +187,7 @@ def download_video(
 
     # Notify that we're fetching video info
     if progress_callback:
-        progress_callback("Fetching info", "", "", "", "", "Getting video information...")
+        progress_callback("Fetching info", "", "", "", "", "Getting media information...")
 
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
@@ -199,5 +199,5 @@ def download_video(
 
 
 if __name__ == "__main__":
-    test_url = input("Enter video URL: ")
+    test_url = input("Enter media URL: ")
     download_video(test_url)

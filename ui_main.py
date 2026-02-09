@@ -19,7 +19,7 @@ class DownloaderUI(ctk.CTk):
         ctk.set_appearance_mode("Dark")   # Dark / Light / System
         ctk.set_default_color_theme("blue")
 
-        self.title("yt-dlp GUI")
+        self.title("Media Downloader")
         # Slightly taller + resizable to prevent clipping on different DPI / font scaling
         self.geometry("900x580")
         self.minsize(820, 540)
@@ -135,7 +135,7 @@ class DownloaderUI(ctk.CTk):
 
         self.logo_label = ctk.CTkLabel(
             self.sidebar_frame, 
-            text="YT-DLP GUI", 
+            text="Media Downloader", 
             font=ctk.CTkFont(size=20, weight="bold")
         )
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
@@ -202,7 +202,7 @@ class DownloaderUI(ctk.CTk):
 
         ctk.CTkLabel(
             self.main,
-            text="Download Video or Audio from YouTube",
+            text="Download Video or Audio",
             font=ctk.CTkFont(size=24, weight="bold")
         ).pack(pady=(20, 5))
 
@@ -219,7 +219,7 @@ class DownloaderUI(ctk.CTk):
 
         ctk.CTkLabel(
             self.card,
-            text="YouTube URL or Search",
+            text="URL or Search",
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=20, pady=(15, 5))
 
