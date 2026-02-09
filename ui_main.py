@@ -5,7 +5,9 @@ from tkinter import filedialog
 from downloader import download_video, get_available_qualities
 from about_dialog import AboutDialog
 from history_dialog import HistoryDialog
+from history_dialog import HistoryDialog
 from error_dialog import ErrorDialog
+from overwrite_dialog import OverwriteDialog
 from error_handling import get_user_friendly_error
 
 # MAIN UI WINDOW
@@ -17,7 +19,7 @@ class DownloaderUI(ctk.CTk):
         ctk.set_appearance_mode("Dark")   # Dark / Light / System
         ctk.set_default_color_theme("blue")
 
-        self.title("yt-dlp GUI")
+        self.title("Media Downloader")
         # Slightly taller + resizable to prevent clipping on different DPI / font scaling
         self.geometry("900x580")
         self.minsize(820, 540)
@@ -133,7 +135,7 @@ class DownloaderUI(ctk.CTk):
 
         self.logo_label = ctk.CTkLabel(
             self.sidebar_frame, 
-            text="YT-DLP GUI", 
+            text="Media Downloader", 
             font=ctk.CTkFont(size=20, weight="bold")
         )
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
@@ -200,7 +202,7 @@ class DownloaderUI(ctk.CTk):
 
         ctk.CTkLabel(
             self.main,
-            text="Download Video or Audio from YouTube",
+            text="Download Video or Audio",
             font=ctk.CTkFont(size=24, weight="bold")
         ).pack(pady=(20, 5))
 
@@ -217,7 +219,7 @@ class DownloaderUI(ctk.CTk):
 
         ctk.CTkLabel(
             self.card,
-            text="YouTube URL or Search",
+            text="URL or Search",
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=20, pady=(15, 5))
 
@@ -250,6 +252,21 @@ class DownloaderUI(ctk.CTk):
         )
         self.resolution_menu.configure(state="disabled")
         self.resolution_menu.pack(anchor="w", padx=20, pady=(5, 15))
+
+        ctk.CTkLabel(
+            self.card,
+            text="Output Format",
+            font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(anchor="w", padx=20)
+
+        self.container_var = ctk.StringVar(value="Auto")
+
+        self.container_menu = ctk.CTkOptionMenu(
+            self.card,
+            values=["Auto", "MP4"],
+            variable=self.container_var
+        )
+        self.container_menu.pack(anchor="w", padx=20, pady=(5, 15))
 
         # ---------- Save Path ----------
         path_frame = ctk.CTkFrame(self.card, fg_color="transparent")
@@ -373,17 +390,22 @@ class DownloaderUI(ctk.CTk):
         Thread(
             target=self.run_download,
             args=(url,),
+            kwargs={"force_overwrite": False},
             daemon=True
         ).start()
 
-    def run_download(self, url):
+    def run_download(self, url, force_overwrite=False):
         resolution = self.resolution_var.get()
+        container = self.container_var.get().lower()
 
         def on_progress(status_msg, percent, speed, total, eta, info):
             # Update status label (main phase)
             self.after(0, lambda s=status_msg: self.status_label.configure(text=s))
             
             if status_msg == "Finished":
+                self.after(0, lambda: self.set_app_status("Finished"))
+
+            if status_msg == "Already Downloaded":
                 self.after(0, lambda: self.set_app_status("Finished"))
             
             # Update progress bar
@@ -430,13 +452,50 @@ class DownloaderUI(ctk.CTk):
                 url,
                 save_path=self.save_path,
                 resolution=resolution,
+                container=container,
+                force_overwrite=force_overwrite,
                 progress_callback=on_progress
             )
             self.after(0, self.on_download_complete)
+            
+        except FileExistsError:
+            # Pause UI and ask user
+            self.after(0, self.prompt_overwrite)
+            
         except Exception as e:
             error_msg = str(e)
             # Provide helpful message for ffmpeg errors
             self.after(0, lambda msg=error_msg: self.on_download_error(msg))
+
+    def prompt_overwrite(self):
+        # Callback wrapper to restart download with overwrite
+        def handle_overwrite():
+            self._set_busy("downloading", True)
+            self.status_label.configure(text="Overwriting...")
+            url = self.url_entry.get().strip()
+            Thread(
+                target=self.run_download,
+                args=(url,),
+                kwargs={"force_overwrite": True},
+                daemon=True
+            ).start()
+        
+        def handle_skip():
+             # User chose to skip: Mark as completed/already downloaded without error
+             self.set_progress("Download skipped (File exists)")
+             self.status_label.configure(text="✓ Skipped")
+             self.set_app_status("Finished")
+             self.progress_bar.set(1.0)
+             self._set_busy("downloading", False)
+
+        def handle_cancel():
+            self.set_progress("Download cancelled")
+            self.status_label.configure(text="Cancelled")
+            self.set_app_status("Idle")
+            self._set_busy("downloading", False)
+
+        # Show the dialog
+        OverwriteDialog(self, on_overwrite=handle_overwrite, on_skip=handle_skip, on_cancel=handle_cancel)
 
     def on_download_complete(self):
         # If we already marked it as Finished (e.g. via "already downloaded" logger), don't overwrite the message
