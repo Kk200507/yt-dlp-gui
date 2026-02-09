@@ -54,7 +54,14 @@ def check_ffmpeg():
     return shutil.which("ffmpeg") is not None
 
 
-def download_video(url: str, save_path: str = None, resolution: str = "Best", progress_callback=None):
+def download_video(
+    url: str,
+    save_path: str = None,
+    resolution: str = "Best",
+    container: str = "auto",   # "auto" | "mp4"
+    progress_callback=None
+):
+
     """
     progress_callback: function(status: str, percent: str, speed: str, total: str, eta: str, info: str)
     """
@@ -129,11 +136,25 @@ def download_video(url: str, save_path: str = None, resolution: str = "Best", pr
 
     # Format selection based on resolution
     format_selector = "best"
+
     if resolution == "Audio only":
         format_selector = "bestaudio/best"
+
     elif resolution.endswith("p"):
         height = resolution.replace("p", "")
         format_selector = f"bestvideo[height<={height}]+bestaudio/best"
+
+    # Container preference (MP4)
+
+    if container == "mp4":
+        if resolution == "Audio only":
+            format_selector = "bestaudio[ext=m4a]/bestaudio"
+        elif resolution.endswith("p"):
+            height = resolution.replace("p", "")
+            format_selector = f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+        else:
+            # Resolution is "Best" or unknown
+            format_selector = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
     
     # Output template
     if save_path:
@@ -142,13 +163,15 @@ def download_video(url: str, save_path: str = None, resolution: str = "Best", pr
         outtmpl = "%(title)s.%(ext)s"
 
     ydl_opts = {
-        "format": format_selector,
-        "outtmpl": outtmpl,
-        "progress_hooks": [progress_hook],
-        "quiet": False,
-        "no_warnings": False,
-        "logger": InterceptLogger(),
-    }
+    "format": format_selector,
+    "outtmpl": outtmpl,
+    "progress_hooks": [progress_hook],
+    "quiet": False,
+    "no_warnings": False,
+    "logger": InterceptLogger(),
+    "merge_output_format": "mp4" if container == "mp4" else None,
+}
+
 
     # Note: yt-dlp will automatically detect and use ffmpeg if available
     # We don't need to check manually - yt-dlp will handle it gracefully

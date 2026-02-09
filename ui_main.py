@@ -251,6 +251,21 @@ class DownloaderUI(ctk.CTk):
         self.resolution_menu.configure(state="disabled")
         self.resolution_menu.pack(anchor="w", padx=20, pady=(5, 15))
 
+        ctk.CTkLabel(
+            self.card,
+            text="Output Format",
+            font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(anchor="w", padx=20)
+
+        self.container_var = ctk.StringVar(value="Auto")
+
+        self.container_menu = ctk.CTkOptionMenu(
+            self.card,
+            values=["Auto", "MP4"],
+            variable=self.container_var
+        )
+        self.container_menu.pack(anchor="w", padx=20, pady=(5, 15))
+
         # ---------- Save Path ----------
         path_frame = ctk.CTkFrame(self.card, fg_color="transparent")
         path_frame.pack(fill="x", padx=20, pady=(0, 20))
@@ -378,6 +393,7 @@ class DownloaderUI(ctk.CTk):
 
     def run_download(self, url):
         resolution = self.resolution_var.get()
+        container = self.container_var.get().lower()
 
         def on_progress(status_msg, percent, speed, total, eta, info):
             # Update status label (main phase)
@@ -430,6 +446,7 @@ class DownloaderUI(ctk.CTk):
                 url,
                 save_path=self.save_path,
                 resolution=resolution,
+                container=container,
                 progress_callback=on_progress
             )
             self.after(0, self.on_download_complete)
