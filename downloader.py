@@ -59,6 +59,7 @@ def download_video(
     save_path: str = None,
     resolution: str = "Best",
     container: str = "auto",   # "auto" | "mp4"
+    force_overwrite: bool = False,
     progress_callback=None
 ):
 
@@ -66,16 +67,22 @@ def download_video(
     progress_callback: function(status: str, percent: str, speed: str, total: str, eta: str, info: str)
     """
 
+    already_downloaded = {"value": False}
+
     class InterceptLogger:
         def debug(self, msg):
-            if "already been downloaded" in msg:
-                 if progress_callback:
-                     progress_callback("Finished", "100%", "", "", "", "File already exists - skipped download")
+            if "already been downloaded" in msg.lower():
+                already_downloaded["value"] = True
+                # Do NOT trigger callback here if we are going to handle it via exception
+                # But to be safe, we can leave it or silence it. 
+                # If we silence it, the UI won't flash "Already Downloaded".
+                # User said: "Do not finalize anything yet."
             pass
         def warning(self, msg):
             pass
         def error(self, msg):
-            pass
+            # Print error to console for debugging
+            print(f"[ERROR] {msg}")
         def info(self, msg):
             pass
 
@@ -171,7 +178,9 @@ def download_video(
     "logger": InterceptLogger(),
     "merge_output_format": "mp4" if container == "mp4" else None,
 }
-
+    
+    if force_overwrite:
+        ydl_opts["overwrites"] = True
 
     # Note: yt-dlp will automatically detect and use ffmpeg if available
     # We don't need to check manually - yt-dlp will handle it gracefully
@@ -182,6 +191,9 @@ def download_video(
 
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
+
+    if already_downloaded["value"] and not force_overwrite:
+        raise FileExistsError("File already exists")
 
     save_history_entry(info)
 

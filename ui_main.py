@@ -5,7 +5,9 @@ from tkinter import filedialog
 from downloader import download_video, get_available_qualities
 from about_dialog import AboutDialog
 from history_dialog import HistoryDialog
+from history_dialog import HistoryDialog
 from error_dialog import ErrorDialog
+from overwrite_dialog import OverwriteDialog
 from error_handling import get_user_friendly_error
 
 # MAIN UI WINDOW
@@ -388,10 +390,11 @@ class DownloaderUI(ctk.CTk):
         Thread(
             target=self.run_download,
             args=(url,),
+            kwargs={"force_overwrite": False},
             daemon=True
         ).start()
 
-    def run_download(self, url):
+    def run_download(self, url, force_overwrite=False):
         resolution = self.resolution_var.get()
         container = self.container_var.get().lower()
 
@@ -400,6 +403,9 @@ class DownloaderUI(ctk.CTk):
             self.after(0, lambda s=status_msg: self.status_label.configure(text=s))
             
             if status_msg == "Finished":
+                self.after(0, lambda: self.set_app_status("Finished"))
+
+            if status_msg == "Already Downloaded":
                 self.after(0, lambda: self.set_app_status("Finished"))
             
             # Update progress bar
@@ -447,13 +453,49 @@ class DownloaderUI(ctk.CTk):
                 save_path=self.save_path,
                 resolution=resolution,
                 container=container,
+                force_overwrite=force_overwrite,
                 progress_callback=on_progress
             )
             self.after(0, self.on_download_complete)
+            
+        except FileExistsError:
+            # Pause UI and ask user
+            self.after(0, self.prompt_overwrite)
+            
         except Exception as e:
             error_msg = str(e)
             # Provide helpful message for ffmpeg errors
             self.after(0, lambda msg=error_msg: self.on_download_error(msg))
+
+    def prompt_overwrite(self):
+        # Callback wrapper to restart download with overwrite
+        def handle_overwrite():
+            self._set_busy("downloading", True)
+            self.status_label.configure(text="Overwriting...")
+            url = self.url_entry.get().strip()
+            Thread(
+                target=self.run_download,
+                args=(url,),
+                kwargs={"force_overwrite": True},
+                daemon=True
+            ).start()
+        
+        def handle_skip():
+             # User chose to skip: Mark as completed/already downloaded without error
+             self.set_progress("Download skipped (File exists)")
+             self.status_label.configure(text="✓ Skipped")
+             self.set_app_status("Finished")
+             self.progress_bar.set(1.0)
+             self._set_busy("downloading", False)
+
+        def handle_cancel():
+            self.set_progress("Download cancelled")
+            self.status_label.configure(text="Cancelled")
+            self.set_app_status("Idle")
+            self._set_busy("downloading", False)
+
+        # Show the dialog
+        OverwriteDialog(self, on_overwrite=handle_overwrite, on_skip=handle_skip, on_cancel=handle_cancel)
 
     def on_download_complete(self):
         # If we already marked it as Finished (e.g. via "already downloaded" logger), don't overwrite the message
