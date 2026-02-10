@@ -9,6 +9,7 @@ from history_dialog import HistoryDialog
 from error_dialog import ErrorDialog
 from overwrite_dialog import OverwriteDialog
 from error_handling import get_user_friendly_error
+from config import get_save_path, set_save_path
 
 # MAIN UI WINDOW
 class DownloaderUI(ctk.CTk):
@@ -35,7 +36,7 @@ class DownloaderUI(ctk.CTk):
             self.iconbitmap(icon_path)
 
         # ---------- State ----------
-        self.save_path = os.path.expanduser("~/Downloads")
+        self.save_path = get_save_path()
         self._probe_seq = 0
         self._is_downloading = False
         self._app_status = "Idle"  # Idle / Probing / Downloading / Finished
@@ -369,6 +370,7 @@ class DownloaderUI(ctk.CTk):
         folder = filedialog.askdirectory()
         if folder:
             self.save_path = folder
+            set_save_path(folder)
             self.path_label.configure(text=f"Save to: {folder}")
 
     # ---------- Download Logic ----------
