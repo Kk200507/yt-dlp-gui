@@ -63,8 +63,15 @@ class HistoryDialog(ctk.CTkToplevel):
         frame.pack(fill="x", pady=5)
 
         title = item.get("title", "Unknown title")
-        resolution = item.get("resolution") or "—"
+        
+        # Determine best resolution string
+        if item.get("height"):
+            resolution = f"{item['height']}p"
+        else:
+            resolution = item.get("resolution") or "—"
+            
         url = item.get("url", "")
+
         # date = item.get("timestamp", "")[:10]
 
         # Title

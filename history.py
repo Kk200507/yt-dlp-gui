@@ -26,9 +26,12 @@ def save_history_entry(info):
         "format": info.get("ext"),
         "container": info.get("ext"),   # mp4 / webm / m4a
         "resolution": info.get("resolution"),
+        "height": info.get("height"),
+        "width": info.get("width"),
         "filesize_mb": round((info.get("filesize_approx", 0) or 0) / 1024 / 1024, 2),
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
+
 
     history.insert(0, entry)
 
