@@ -141,27 +141,19 @@ class DownloaderUI(ctk.CTk):
         )
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
 
-        self.sidebar_button_home = ctk.CTkButton(
-            self.sidebar_frame, 
-            text="Home",
-            command=self.sidebar_home_event
-        )
-        self.sidebar_button_home.grid(row=1, column=0, padx=20, pady=10)
-
         self.sidebar_button_history = ctk.CTkButton(
             self.sidebar_frame,
             text="History",
             command=self.open_history
         )
-        self.sidebar_button_history.grid(row=2, column=0, padx=20, pady=10)
-
+        self.sidebar_button_history.grid(row=1, column=0, padx=20, pady=10)
 
         self.sidebar_button_about = ctk.CTkButton(
             self.sidebar_frame, 
             text="About",
             command=self.open_about_dialog
         )
-        self.sidebar_button_about.grid(row=3, column=0, padx=20, pady=10)
+        self.sidebar_button_about.grid(row=2, column=0, padx=20, pady=10)
 
         # Appearance Mode
         self.appearance_mode_label = ctk.CTkLabel(
@@ -181,9 +173,7 @@ class DownloaderUI(ctk.CTk):
         # Select default
         self.appearance_mode_optionemenu.set("Dark")
 
-    def sidebar_home_event(self):
-        # Already on home, maybe reset? For now just pass
-        pass
+
 
     def open_about_dialog(self):
         AboutDialog(self)
