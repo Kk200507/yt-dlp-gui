@@ -6,8 +6,8 @@ class AboutDialog(ctk.CTkToplevel):
         super().__init__(parent)
 
         self.title("About")
-        self.geometry("420x360")
-        self.resizable(False, False)
+        self.geometry("480x480")
+        self.resizable(True, True)
 
         self.transient(parent)
         self.grab_set()
@@ -30,7 +30,7 @@ class AboutDialog(ctk.CTkToplevel):
             text="A simple graphical interface for yt-dlp,\n"
                  "designed for non-technical users.",
             justify="center",
-            wraplength=360
+            wraplength=400
         ).grid(row=2, column=0, pady=10)
 
         ctk.CTkLabel(
@@ -40,7 +40,7 @@ class AboutDialog(ctk.CTkToplevel):
                  "Downloading copyrighted content may be illegal.\n"
                  "You are solely responsible for how you use this software.",
             justify="center",
-            wraplength=360,
+            wraplength=400,
             text_color="gray"
         ).grid(row=3, column=0, pady=15)
 
