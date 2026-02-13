@@ -173,8 +173,6 @@ class DownloaderUI(ctk.CTk):
         # Select default
         self.appearance_mode_optionemenu.set("Dark")
 
-
-
     def open_about_dialog(self):
         AboutDialog(self)
 
@@ -518,8 +516,7 @@ class DownloaderUI(ctk.CTk):
 
     def set_progress(self, text):
         self.progress_label.configure(text=text)
-
-
+#formatted
 if __name__ == "__main__":
     app = DownloaderUI()
     app.mainloop()
